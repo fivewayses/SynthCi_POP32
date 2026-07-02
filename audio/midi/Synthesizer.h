@@ -1,13 +1,10 @@
 #pragma once
 
-#include "Note.h"
-#include "waveforms.h"
-#include <SDL2/SDL_error.h>
+#include <POP32.h>
 #include <cstddef>
 #include <cstdint>
-#include <climits>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_audio.h>
+#include "Note.h"
+#include "waveforms.h"
 
 #define MAX_VOICES 256
 #define SAMPLE_RATE 24000
@@ -24,8 +21,11 @@ typedef enum {
 
 static voice_t voices[MAX_VOICES];
 
-static void AudioCallback(void *userdata, uint8_t *stream, int len) {
-	for (int i = 0; i < len; ++i) {
+static void TIM3_IRQHandler(void)
+{
+	if (LL_TIM_IsActiveFlag_UPDATE(TIM3)) {
+        LL_TIM_ClearFlag_UPDATE(TIM3);
+		
 		int16_t audio_sample = 0;
 		int32_t num_active_voices = 0;
 		
@@ -43,6 +43,26 @@ static void AudioCallback(void *userdata, uint8_t *stream, int len) {
 	}
 }
 
+/*
+static void AudioCallback(void *userdata, uint8_t *stream, int len) {
+	for (int i = 0; i < len; ++i) {
+		int16_t audio_sample = 0;
+		int32_t num_active_voices = 0;
+		
+		for (int j = 0; j < MAX_VOICES; ++j) {
+			voice_t &v = voices[j];
+			
+			if (v.is_active) {
+				v.phase += v.phase_inc;
+				audio_sample += TRIANGLE_SAMPLE[v.phase];
+				++num_active_voices;
+			}
+		}
+		
+		stream[i] = num_active_voices ? (uint8_t)(audio_sample / num_active_voices + 128) : 0;
+	}
+}*/
+
 class Synthesizer {
 	
 public:
@@ -58,16 +78,17 @@ public:
 	
 	void Play()
 	{
-		SDL_PauseAudioDevice(device, 0);
+		//SDL_PauseAudioDevice(device, 0);
 	}
 	
 	void Stop() {
-		SDL_PauseAudioDevice(device, 1);
+		//SDL_PauseAudioDevice(device, 1);
 	}
 	
 	bool Open() {
 		if (is_open) return false;
 		
+		/*
 		SDL_AudioSpec spec {
 			.freq = SAMPLE_RATE,
 			.format = AUDIO_U8,
@@ -77,16 +98,13 @@ public:
 		};
 		
 		device = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, 0);
-		is_open = device > 0;
+		is_open = device > 0;*/
 		
 		return is_open;
 	}
 	
 	bool Close() {
 		if (!is_open) return false;
-		
-		SDL_PauseAudioDevice(device, 1);
-		SDL_CloseAudioDevice(device);
 			
 		device = 0;
 		is_open = false;
@@ -135,13 +153,13 @@ public:
 	
 	uint8_t *TestAudio(uint32_t sample_size = 1024) {
 		uint8_t *sample = new uint8_t[sample_size];
-		AudioCallback(NULL, sample, sample_size);
+		//AudioCallback(NULL, sample, sample_size);
 		
 		return sample;
 	}
 
 private:
-	SDL_AudioDeviceID device;
+	int device;
 	
 	bool is_open = false;
 };

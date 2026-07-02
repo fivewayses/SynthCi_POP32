@@ -5,7 +5,6 @@
 #include <cstring>
 #include <utility>
 #include <vector>
-#include <SDL2/SDL.h>
 #include "../../extra/big_endian.h"
 #include "../../extra/vlq.h"
 

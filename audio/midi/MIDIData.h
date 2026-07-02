@@ -1,6 +1,5 @@
 #pragma once
 
-#include <SDL2/SDL_timer.h>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -18,23 +17,13 @@ public:
 	MIDIData(const uint8_t *data, uint32_t size)
 	{
 		valid = ParseMIDI(data, size, midi);
-		
-		/*
-		if (valid) {
-			uint32_t num_events = 0;
-			for (const midi_track_t &t : midi.tracks) {
-				num_events += (uint32_t)t.events.size();
-			}
-			
-			events = new synth_event_t[num_events];
-		}*/
 	}
 	
 	bool Play(Synthesizer &synth)
 	{
 		if (!valid || !synth.IsOpen()) return false;
 		
-		uint32_t t = SDL_GetTicks();
+		uint32_t t = HAL_GetTick();
 		uint32_t last_callback_time = t;
 		uint32_t step = 0;
 		
@@ -45,7 +34,7 @@ public:
 			// Wait until time updates.
 			uint32_t new_t;
 			do {
-				new_t = SDL_GetTicks();
+				new_t = HAL_GetTick();
 			} while (t <= new_t);
 			t = new_t;
 			
@@ -87,6 +76,5 @@ public:
 
 private:
 	bool valid = false;
-	//synth_event_t *events;
 	midi_data_t midi;
 };
