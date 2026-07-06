@@ -6,6 +6,7 @@
 #include <HardwareTimer.h>
 #include "Note.h"
 #include "waveforms.h"
+#include "error/error.h"
 
 #define MAX_VOICES 256
 #define SAMPLE_RATE 24000
@@ -60,7 +61,10 @@ public:
 	}
 	
 	bool Open() {
-		if (is_open) return false;
+		if (is_open) {
+			PushError("Audio device is already open");
+			return false;
+		}
 		
 		tim.setup(TIM3);
 		tim.setOverflow(SAMPLE_RATE, HERTZ_FORMAT);
@@ -70,7 +74,10 @@ public:
 	}
 	
 	bool Close() {
-		if (!is_open) return false;
+		if (!is_open) {
+			PushError("Audio device is already closed");
+			return false;
+		}
 			
 		tim.~HardwareTimer();
 		is_open = false;
@@ -106,11 +113,18 @@ public:
 		return AddVoice(Note(type, octave));
 	}
 	
-	bool RemoveVoice(uint32_t index) {
-		if (index <= 0 || index > MAX_VOICES) return false;
+	bool RemoveVoice(uint32_t index)
+	{
+		if (index <= 0 || index > MAX_VOICES) {
+			PushError("Voice index (%d) out of range of 1 - %d", index, MAX_VOICES);
+			return false;
+		}
 		
 		voice_t &v = voices[index-1];
-		if (!v.is_active) return false;
+		if (!v.is_active) {
+			PushError("Voice #%d is not active", index);
+			return false;
+		}
 		
 		v.is_active = false;
 		

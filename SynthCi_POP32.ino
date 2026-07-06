@@ -1,6 +1,7 @@
 #include "audio/midi/Note.h"
 #include "audio/midi/Synthesizer.h"
 #include "audio/midi/MIDIData.h"
+#include "example/all_instruments_test.h"
 
 #define CheckError(status, ...) if (!(status)) {\
 	oled.clear();\
@@ -12,9 +13,17 @@ static Synthesizer synth;
 
 void setup()
 {
+	asm(".global _printf_float");
+
+	MIDIData midi(all_instruments_test, all_instruments_test_len);
+	CheckError(
+		midi.IsValid(),
+		"MIDI parsing failed: %s", GetError().c_str()
+	);
+
 	CheckError(
 		synth.Open(),
-		"Could not initialize Synthesizer: %s\n", "No error"
+		"Could not initialize Synthesizer: %s", GetError().c_str()
 	);
 	
 	synth.Play();
@@ -42,6 +51,8 @@ void setup()
 	
 	synth.RemoveVoice(1);
 	delay(250);
+
+	midi.Play(synth);
 	
 	synth.Close();
 }

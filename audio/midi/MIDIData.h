@@ -6,10 +6,9 @@
 #include "pitch_table.h"
 #include "midi_parser.h"
 #include "Synthesizer.h"
+#include "error/error.h"
 
-struct synth_event_t {
-	
-};
+constexpr char INVALID_MIDI_DATA_ERR[] = "MIDI data is not valid";
 
 class MIDIData {
 	
@@ -17,14 +16,25 @@ public:
 	MIDIData(const uint8_t *data, uint32_t size)
 	{
 		valid = ParseMIDI(data, size, midi);
+		
+		// Un-comment this line to inspect MIDI notes.
+		//DebugNotes();
 	}
 	
 	bool Play(Synthesizer &synth)
 	{
-		if (!valid || !synth.IsOpen()) return false;
+		if (!valid) {
+			PushError(INVALID_MIDI_DATA_ERR);
+			return false;
+		}
+		if (!synth.IsOpen()) {
+			PushError("Synthesizer is not open");
+			return false;
+		}
 		
 		uint32_t t = HAL_GetTick();
-		uint32_t last_callback_time = t;
+		uint32_t start = t;
+		uint32_t current_t = 0;
 		uint32_t step = 0;
 		
 		static uint32_t notes[256];
@@ -33,14 +43,19 @@ public:
 		while (true) {
 			// Wait until time updates.
 			uint32_t new_t;
-			do {
-				new_t = HAL_GetTick();
-			} while (t <= new_t);
+			while (t >= (new_t = HAL_GetTick()));
 			t = new_t;
 			
-			while (true) {
+			uint32_t t_rel = t - start;
+			
+			// Make sure we check events on all concurent values of t,
+			// even when t skips a value.
+			while (current_t <= t_rel) {
 				midi_event_t &e = midi.tracks[0].events[step];
-				if (e.abs_time != t) break;
+				if (e.abs_time != current_t) {
+					++current_t;
+					continue;
+				}
 				
 				++step;
 				if (step >= midi.tracks[0].events.size()) return true;
@@ -63,6 +78,8 @@ public:
 				
 					break;
 				}
+				
+				++current_t;
 			}
 		}
 		
@@ -72,6 +89,28 @@ public:
 	inline bool IsValid() const
 	{
 		return valid;
+	}
+	
+	bool DebugNotes()
+	{
+		if (!valid) {
+			PushError(INVALID_MIDI_DATA_ERR);
+			return false;
+		}
+		
+		for (const midi_event_t &e : midi.tracks[0].events) {
+			oled.text(
+				0, 0,
+				"abs=%d\ndt=%d\ntype=%x\ndata1=%d\ndata2=%d\n",
+				e.abs_time,
+				e.dt,
+				e.type,
+				e.data1,
+				e.data2
+			);
+		}
+		
+		return true;
 	}
 
 private:
