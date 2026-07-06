@@ -6,19 +6,19 @@
 
 #define ERROR_STACK_SIZE 16
 
-struct error_t {
+struct error_info_t {
 	const char *msg;
 	int64_t p1, p2, p3, p4;
 	bool valid = false;
 };
 
-static error_t error_stack[ERROR_STACK_SIZE];
+static error_info_t error_stack[ERROR_STACK_SIZE];
 
 static std::string GetError(uint32_t index = 0)
 {
 	if (index >= ERROR_STACK_SIZE) return "";
 	
-	error_t &err = error_stack[index];
+	error_info_t &err = error_stack[index];
 	if (!err.valid) return "";
 	
 	char err_buffer[256];
@@ -36,11 +36,11 @@ static void PushError(
 	int64_t p3 = 0, int64_t p4 = 0
 )
 {
-	error_t err = { msg, p1, p2, p3, p4, true };
+	error_info_t err = { msg, p1, p2, p3, p4, true };
 	
 	// Shift the error stack.
 	for (int i = ERROR_STACK_SIZE - 1; i > 0; --i) {
-		error_t prev = error_stack[i-1];
+		error_info_t prev = error_stack[i-1];
 		if (!prev.valid) return;
 		
 		error_stack[i] = prev;
@@ -51,7 +51,7 @@ static void PushError(
 
 static void ClearError()
 {
-	error_t &err = error_stack[0];
+	error_info_t &err = error_stack[0];
 	int32_t i = 0;
 	
 	while (err.valid) {
