@@ -1,8 +1,8 @@
 #pragma once
 
-#include "pitch_table.h"
 #include <cmath>
 #include <cstdint>
+#include "pitch_table.h"
 
 enum class note_e {
 	A,
@@ -35,7 +35,7 @@ public:
 	}
 	
 	inline float CalculatePitch() const {
-		if (note >= 0 && note < 128) return MIDI_PITCH_TABLE[note];
+		if (note >= 0 && note < 128) return MIDI_PITCH_TABLE.data[note];
 		
 		return CONCERT_A_PITCH * powf(TWELFTH_ROOT_OF_2, note - CONCERT_A_MIDI_NOTE);
 	};

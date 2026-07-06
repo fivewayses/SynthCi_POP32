@@ -1,15 +1,11 @@
 #include "audio/midi/Note.h"
 #include "audio/midi/Synthesizer.h"
 #include "audio/midi/MIDIData.h"
-#include <cstdint>
-#include <cstring>
-#include <iostream>
-#include <fstream>
 
-#define CheckError(status, ...) if (!(status)) { \
+#define CheckError(status, ...) if (!(status)) {\
 	oled.clear();\
 	oled.text(0, 0, __VA_ARGS__);\
-	exit(1); \
+	exit(1);\
 }
 
 static Synthesizer synth;
@@ -48,4 +44,8 @@ void setup()
 	delay(250);
 	
 	synth.Close();
+}
+
+void loop() {
+	
 }

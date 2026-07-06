@@ -1,8 +1,9 @@
 #pragma once
 
-#include <POP32.h>
 #include <cstddef>
 #include <cstdint>
+#include <POP32.h>
+#include <HardwareTimer.h>
 #include "Note.h"
 #include "waveforms.h"
 
@@ -21,55 +22,28 @@ typedef enum {
 
 static voice_t voices[MAX_VOICES];
 
-static void TIM3_IRQHandler(void)
+static void AudioCallback(void)
 {
-	if (LL_TIM_IsActiveFlag_UPDATE(TIM3)) {
-        LL_TIM_ClearFlag_UPDATE(TIM3);
+	int16_t audio_sample = 0;
+	int32_t num_active_voices = 0;
 		
-		int16_t audio_sample = 0;
-		int32_t num_active_voices = 0;
-		
-		for (int j = 0; j < MAX_VOICES; ++j) {
-			voice_t &v = voices[j];
+	for (int j = 0; j < MAX_VOICES; ++j) {
+		voice_t &v = voices[j];
 			
-			if (v.is_active) {
-				v.phase += v.phase_inc;
-				audio_sample += TRIANGLE_SAMPLE[v.phase];
-				++num_active_voices;
-			}
+		if (v.is_active) {
+			v.phase += v.phase_inc;
+			audio_sample += TRIANGLE_SAMPLE.data[v.phase];
+			++num_active_voices;
 		}
-		
-		stream[i] = num_active_voices ? (uint8_t)(audio_sample / num_active_voices + 128) : 0;
 	}
+		
+	TIM3->CCR1 = num_active_voices ? (uint8_t)(audio_sample / num_active_voices + 128) : 0;
 }
-
-/*
-static void AudioCallback(void *userdata, uint8_t *stream, int len) {
-	for (int i = 0; i < len; ++i) {
-		int16_t audio_sample = 0;
-		int32_t num_active_voices = 0;
-		
-		for (int j = 0; j < MAX_VOICES; ++j) {
-			voice_t &v = voices[j];
-			
-			if (v.is_active) {
-				v.phase += v.phase_inc;
-				audio_sample += TRIANGLE_SAMPLE[v.phase];
-				++num_active_voices;
-			}
-		}
-		
-		stream[i] = num_active_voices ? (uint8_t)(audio_sample / num_active_voices + 128) : 0;
-	}
-}*/
 
 class Synthesizer {
 	
 public:
-	Synthesizer()
-	{
-		Open();
-	}
+	Synthesizer() {}
 	
 	~Synthesizer()
 	{
@@ -78,35 +52,27 @@ public:
 	
 	void Play()
 	{
-		//SDL_PauseAudioDevice(device, 0);
+		tim.resume();
 	}
 	
 	void Stop() {
-		//SDL_PauseAudioDevice(device, 1);
+		tim.pause();
 	}
 	
 	bool Open() {
 		if (is_open) return false;
 		
-		/*
-		SDL_AudioSpec spec {
-			.freq = SAMPLE_RATE,
-			.format = AUDIO_U8,
-			.channels = 1,
-			.samples = 512,
-			.callback = AudioCallback
-		};
+		tim.setup(TIM3);
+		tim.setOverflow(SAMPLE_RATE, HERTZ_FORMAT);
+		is_open = true;
 		
-		device = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, 0);
-		is_open = device > 0;*/
-		
-		return is_open;
+		return true;
 	}
 	
 	bool Close() {
 		if (!is_open) return false;
 			
-		device = 0;
+		tim.~HardwareTimer();
 		is_open = false;
 		
 		return true;
@@ -150,16 +116,9 @@ public:
 		
 		return true;
 	}
-	
-	uint8_t *TestAudio(uint32_t sample_size = 1024) {
-		uint8_t *sample = new uint8_t[sample_size];
-		//AudioCallback(NULL, sample, sample_size);
-		
-		return sample;
-	}
 
 private:
-	int device;
+	HardwareTimer tim{};
 	
 	bool is_open = false;
 };

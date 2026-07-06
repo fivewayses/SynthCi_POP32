@@ -3,10 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <utility>
 #include <vector>
-#include "../../extra/big_endian.h"
-#include "../../extra/vlq.h"
+#include "extra/big_endian.h"
+#include "extra/vlq.h"
 
 #define MIDI_HEADER_CHUNCK_SIZE 14
 #define MIDI_TRACK_CHUCK_SIZE 8
