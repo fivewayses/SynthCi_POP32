@@ -45,22 +45,69 @@ typedef enum {
 
 static voice_t voices[MAX_VOICES];
 
-static void AudioCallback(void)
-{
-	int16_t audio_sample = 0;
-	int32_t num_active_voices = 0;
+/* The Audio Callback Which Generates Sound */
+static void AudioCallback(void *userdata, uint8_t *stream, int len) {
+	for (int i = 0; i < len; ++i) {
+		int16_t audio_sample = 0;
+		int32_t num_active_voices = 0;
 		
-	for (int j = 0; j < MAX_VOICES; ++j) {
-		voice_t &v = voices[j];
+		// The envelope calculation will run every
+		// ITERS_PER_ENVELOPE_CALC iterations.
+		if (envelope_phase++ % ITERS_PER_ENVELOPE_CALC == 0) {
+			sound_envelope_t env = global_envelope;
 			
-		if (v.is_active) {
+			for (int j = 0; j < MAX_VOICES; ++j) {
+				// Copy the voice to the stack to prevent
+				// race condition.
+				voice_t v = voices[j];
+
+				// If the voice is not active, check first
+				// whether time is negative, representing
+				// the release envelope.
+				if (!v.is_active && v.time_lticks >= 0) continue;
+				
+				int32_t t = env.attack;
+				int64_t time_ms = v.time_lticks / LTICKS_PER_MS;
+				
+				if (v.time_lticks < 0) {
+					// Releasing: sound fades out
+					voices[j].envelope = env.sustain * -time_ms / env.release;
+				} else if (time_ms < t) {
+					// Attacking: sound increases sharply
+					voices[j].envelope = 256 * time_ms / env.attack;
+				} else {
+					t += env.decay;
+					if (time_ms < t) {
+						// Decaying: sound levels out
+						voices[j].envelope = env.sustain + (t - time_ms) * (256 - env.sustain) / env.decay;
+					} else {
+						// Sustaining: sound stays the same
+						voices[j].envelope = env.sustain;
+					}
+				}
+			}
+		}
+		
+		for (int j = 0; j < MAX_VOICES; ++j) {
+			voice_t &v = voices[j];
+			
+			// If the voice is not active, check first
+			// whether time is negative, representing
+			// the release envelope.
+			if (!v.is_active && v.time_lticks >= 0) continue;
+			
+			v.time_lticks += SAMPLE_TIME_INC;
 			v.phase += v.phase_inc;
-			audio_sample += TRIANGLE_SAMPLE.data[v.phase];
+			
+			uint8_t vel = VELOCITY_TABLE.data[v.envelope];
+			int32_t wsample = waveform_sample_table[v.phase / WAVEFORM_SAMPLE_DIV];
+			audio_sample += (int16_t)(wsample * vel / 256);
+			
 			++num_active_voices;
 		}
-	}
 		
-	TIM3->CCR1 = num_active_voices ? (uint8_t)(audio_sample / num_active_voices + 128) : 0;
+		stream[i] = num_active_voices ? (uint8_t)(audio_sample / num_active_voices + 128) : 128;
+	}
 }
 
 class Synthesizer {
@@ -90,6 +137,12 @@ public:
 		
 		tim.setup(TIM3);
 		tim.setOverflow(SAMPLE_RATE, HERTZ_FORMAT);
+		tim.attachInterrupt([] {
+			uint8_t sample;
+			AudioCallback(NULL, &sample, 1);
+
+			TIM3->CCR1 = sample;
+		})
 		is_open = true;
 		
 		return true;
@@ -151,6 +204,14 @@ public:
 		v.is_active = false;
 		
 		return true;
+	}
+
+	uint8_t *TestAudio(uint32_t sample_size = 1024)
+	{
+		uint8_t *sample = new uint8_t[sample_size];
+		AudioCallback(NULL, sample, sample_size);
+		
+		return sample;
 	}
 
 private:

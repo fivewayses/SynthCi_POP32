@@ -25,10 +25,11 @@
 #include <cstdint>
 #include "extra/compile_time_math.h"
 
-#define WAVEFORM_SAMPLE_SIZE 4096
-#define WAVEFORM_SAMPLE_HALF_SIZE 2048
-#define WAVEFORM_SAMPLE_QUAD_SIZE 1024
-#define WAVEFORM_SAMPLE_3_QUAD_SIZE 3072
+inline constexpr int WAVEFORM_SAMPLE_SIZE = 2048;
+inline constexpr int WAVEFORM_SAMPLE_HALF_SIZE = WAVEFORM_SAMPLE_SIZE / 2;
+inline constexpr int WAVEFORM_SAMPLE_QUAD_SIZE = WAVEFORM_SAMPLE_HALF_SIZE / 2;
+inline constexpr int WAVEFORM_SAMPLE_3_QUAD_SIZE = 3 * WAVEFORM_SAMPLE_QUAD_SIZE;
+inline constexpr int WAVEFORM_SAMPLE_DIV = 65536 / WAVEFORM_SAMPLE_SIZE;
 
 struct waveform_sample_t {
 	int8_t data[WAVEFORM_SAMPLE_SIZE];
