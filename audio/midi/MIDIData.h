@@ -25,7 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
-#include "pitch_table.h"
+#include "lookup_tables.h"
 #include "midi_parser.h"
 #include "Synthesizer.h"
 #include "error/error.h"

@@ -33,6 +33,10 @@ struct pitch_table_t {
 	float data[128];
 };
 
+struct velocity_table_t {
+	uint8_t data[256];
+};
+
 constexpr pitch_table_t GeneratePitchTable()
 {
 	pitch_table_t table {};
@@ -46,4 +50,16 @@ constexpr pitch_table_t GeneratePitchTable()
 	return table;
 }
 
-inline constexpr pitch_table_t MIDI_PITCH_TABLE = GeneratePitchTable();
+constexpr velocity_table_t GenerateVelocityTable()
+{
+	velocity_table_t table {};
+	
+	for (int i = 0; i < 256; ++i) {
+		table.data[i] = (uint8_t)((uint16_t)i * i / 256);
+	}
+	
+	return table;
+}
+
+inline constexpr pitch_table_t MIDI_PITCH_TABLE  = GeneratePitchTable();
+inline constexpr velocity_table_t VELOCITY_TABLE = GenerateVelocityTable();

@@ -23,11 +23,12 @@
 #include "audio/midi/Note.h"
 #include "audio/midi/Synthesizer.h"
 #include "audio/midi/MIDIData.h"
-#include "example/all_instruments_test.h"
+#include "example/note_c.h"
+
+#define Log(...) oled.clear(); oled.text(0, 0, __VA_ARGS__);
 
 #define CheckError(status, ...) if (!(status)) {\
-	oled.clear();\
-	oled.text(0, 0, __VA_ARGS__);\
+	Log(__VA_ARGS__);\
 	exit(1);\
 }
 
@@ -37,46 +38,53 @@ void setup()
 {
 	asm(".global _printf_float");
 
-	MIDIData midi(all_instruments_test, all_instruments_test_len);
+	const bool do_midi_test = false;
+	const bool do_audio_sample_test = false;
+	const bool do_time_logging = false;
+	
+	MIDIData midi(note_c, note_c_len);
 	CheckError(
 		midi.IsValid(),
 		"MIDI parsing failed: %s", GetError().c_str()
 	);
-
+	
 	CheckError(
 		synth.Open(),
-		"Could not initialize Synthesizer: %s", GetError().c_str()
+		"Could not initialize Synthesizer: %s\n", GetError().c_str()
 	);
 	
 	synth.Play();
 	
-	synth.AddVoice(note_e::C);
-	delay(250);
+	Log("Playing concert A at 440Hz...\n");
+	synth.AddVoice(note_e::A, 5);
 	
-	synth.AddVoice(note_e::E);
-	delay(250);
+	if (do_audio_sample_test) {
+		Log("Audio sample testing is not supported\n");
+		//Test();
+	}
 	
-	synth.AddVoice(note_e::G);
-	delay(250);
-	
-	synth.AddVoice(note_e::C, 5);
-	delay(250);
-	
-	synth.RemoveVoice(4);
-	delay(250);
-	
-	synth.RemoveVoice(3);
-	delay(250);
-	
-	synth.RemoveVoice(2);
-	delay(250);
+	if (do_time_logging) {
+		for (int i = 1; i <= 20; ++i) {
+			delay(100);
+			Log("%dms\n", i * 100);
+		}
+	} else {
+		delay(2000);
+	}
 	
 	synth.RemoveVoice(1);
-	delay(250);
-
-	midi.Play(synth);
+	delay(1000);
+	
+	if (do_midi_test) {
+		Log("Playing MIDI...\n");
+		midi.Play(synth);
+	}
 	
 	synth.Close();
+	
+	Log("Finished!\n");
+	
+	exit(0);
 }
 
 void loop() {

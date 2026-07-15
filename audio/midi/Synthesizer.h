@@ -32,18 +32,37 @@
 
 #define MAX_VOICES 256
 #define SAMPLE_RATE 24000
+#define LTICKS_PER_MS 65536
+#define ITERS_PER_ENVELOPE_CALC 16
+
+struct sound_envelope_t {
+	uint32_t attack = 50;
+	uint32_t decay = 100;
+	uint32_t release = 300;
+	uint8_t sustain = 192;
+};
 
 struct voice_t {
+	int64_t time_lticks = 0;
 	uint32_t phase_inc = 0;
 	uint16_t phase = 0;
+	uint8_t envelope = 0;
 	bool is_active = false;
 };
 
 typedef enum {
-	SQUARE = 1
+	SQUARE = 1,
+	SAWTOOTH = 2,
+	TRIANGLE = 3,
+	SINE = 4
 } waveform_e;
 
+const uint32_t SAMPLE_TIME_INC = 1000 * LTICKS_PER_MS / SAMPLE_RATE;
+
+const int8_t *waveform_sample_table = SQUARE_SAMPLE.data;
+static sound_envelope_t global_envelope;
 static voice_t voices[MAX_VOICES];
+static uint16_t envelope_phase = 0;
 
 /* The Audio Callback Which Generates Sound */
 static void AudioCallback(void *userdata, uint8_t *stream, int len) {
@@ -142,7 +161,7 @@ public:
 			AudioCallback(NULL, &sample, 1);
 
 			TIM3->CCR1 = sample;
-		})
+		});
 		is_open = true;
 		
 		return true;
@@ -164,14 +183,60 @@ public:
 		return is_open;
 	}
 	
-	uint32_t AddVoice(float freq) {
-		// Find free voice slot
+	bool SetWaveformType(waveform_e wave_type)
+	{
+		switch (wave_type) {
+			
+		case waveform_e::SQUARE:
+			waveform_sample_table = SQUARE_SAMPLE.data;
+			break;
+			
+		case waveform_e::SAWTOOTH:
+			waveform_sample_table = SAWTOOTH_SAMPLE.data;
+			break;
+			
+		case waveform_e::TRIANGLE:
+			waveform_sample_table = TRIANGLE_SAMPLE.data;
+			break;
+			
+		case waveform_e::SINE:
+			waveform_sample_table = SINE_SAMPLE.data;
+			break;
+			
+		default:
+			PushError("Invalid waveform mode");
+			return false;
+		}
+		
+		return true;
+	}
+	
+	uint32_t AddVoice(float freq)
+	{
+		// Find free voice slot.
+		for (int i = 0; i < MAX_VOICES; ++i) {
+			voice_t &v = voices[i];
+			if (v.is_active || v.time_lticks < 0) continue;
+			
+			v.time_lticks = 0;
+			v.phase_inc = (uint32_t)(freq * 65536.0f / (float)SAMPLE_RATE);
+			v.phase = 0;
+			v.envelope = 0;
+			v.is_active = true;
+		
+			return i + 1;
+		}
+		
+		// Try to find releasing voice slot
+		// if no fully free slot is avalible.
 		for (int i = 0; i < MAX_VOICES; ++i) {
 			voice_t &v = voices[i];
 			if (v.is_active) continue;
 			
+			v.time_lticks = 0;
 			v.phase_inc = (uint32_t)(freq * 65536.0f / (float)SAMPLE_RATE);
 			v.phase = 0;
+			v.envelope = 0;
 			v.is_active = true;
 		
 			return i + 1;
@@ -180,11 +245,13 @@ public:
 		return 0;
 	}
 	
-	uint32_t AddVoice(uint8_t midi_note) {
+	uint32_t AddVoice(uint8_t midi_note)
+	{
 		return AddVoice(Note(midi_note));
 	}
 	
-	uint32_t AddVoice(note_e type, int32_t octave = 4) {
+	uint32_t AddVoice(note_e type, int32_t octave = 4)
+	{
 		return AddVoice(Note(type, octave));
 	}
 	
@@ -201,6 +268,7 @@ public:
 			return false;
 		}
 		
+		v.time_lticks = -(int64_t)global_envelope.release * LTICKS_PER_MS;
 		v.is_active = false;
 		
 		return true;
