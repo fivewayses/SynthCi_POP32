@@ -24,7 +24,7 @@
 
 #include <cmath>
 #include <cstdint>
-#include "pitch_table.h"
+#include "lookup_tables.h"
 
 enum class note_e {
 	A,
